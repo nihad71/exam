@@ -10,9 +10,8 @@
         .answer-box {
             width: 100%;
             min-height: 40px;
-            max-height: 300px;
-            overflow-y: auto;
-            resize: vertical;
+            overflow-y: hidden; /* Daxili scroll çubuğunu gizlədin */
+            resize: none; /* Manual ölçü dəyişməyi ləğv edin */
         }
 
         .timer {
@@ -53,17 +52,20 @@
         <form method="POST" action="/exam">
             <ul class="list-group" id="question-list">
                 {% for question in questions %}
-                    <li class="list-group-item" id="question-{{ loop.index }}">
+                    <li class="list-group-item">
                         <label>{{ question }}</label>
                         <textarea name="answer-{{ loop.index }}" class="form-control answer-box"></textarea>
-                        <button type="button" class="btn btn-success mt-2" id="confirm-{{ loop.index }}" onclick="confirmAnswer('{{ loop.index }}')">Təsdiqlə</button>
+                        <input type="hidden" name="question-{{ loop.index }}" value="{{ question }}">
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-success" id="confirm-{{ loop.index }}" onclick="confirmAnswer('{{ loop.index }}')">Təsdiq et</button>
+                        </div>
                     </li>
                 {% endfor %}
             </ul>
             <div class="text-center mt-4">
                 <button type="submit" class="btn btn-primary">Cavabları Göndər</button>
             </div>
-        </form>
+        </form>        
     </div>
 
     <!-- Bootstrap JS -->
@@ -78,11 +80,13 @@
         const questionBoxesContainer = document.getElementById('question-boxes');
 
         // Sualların sayına uyğun boxları yaratmaq
-        for (let i = 0; i < questions.length; i++) {
-            const box = document.createElement('div');
-            box.classList.add('question-box');
-            box.textContent = i + 1;
-            questionBoxesContainer.appendChild(box);
+        function createQuestionBoxes() {
+            for (let i = 0; i < questions.length; i++) {
+                const box = document.createElement('div');
+                box.classList.add('question-box');
+                box.textContent = i + 1;
+                questionBoxesContainer.appendChild(box);
+            }
         }
 
         // Timeri başlatmaq
@@ -93,25 +97,13 @@
                     alert("İmtahan müddəti bitdi!");
                 } else {
                     remainingTime--;
-                    sessionStorage.setItem('remainingTime', remainingTime);  // Timer dəyərini saxlayırıq
+                    sessionStorage.setItem('remainingTime', remainingTime); // Timer dəyərini saxlayırıq
                     let minutes = Math.floor(remainingTime / 60);
                     let seconds = remainingTime % 60;
                     timerElement.textContent = `${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
                 }
             }, 1000);
         }
-
-        // Səhifə yükləndikdə, timeri başlat
-        window.onload = function() {
-            startTimer();
-
-            // Səhifə yeniləndikdə təsdiq mesajı göstərmək
-            window.onbeforeunload = function(event) {
-                const confirmationMessage = "İmtahan səhifəsini yeniləmək istəyirsiniz? Bütün məlumatlar itəcək!";
-                event.returnValue = confirmationMessage;  // Firefox üçün
-                return confirmationMessage;  // Chrome üçün
-            };
-        };
 
         // Cavabları təsdiqləmək funksiyası
         function confirmAnswer(questionIndex) {
@@ -121,25 +113,58 @@
 
             if (answerBox.value.trim() !== "") {
                 questionBox.classList.add('completed');
-                confirmButton.setAttribute("disabled", "true");
+                confirmButton.setAttribute("disabled", "true"); // "Təsdiq et" düyməsi deaktiv olur
+                answerBox.setAttribute("readonly", "true"); // Cavab redaktə edilə bilməz
+
+                // "Ləğv et" düyməsini əlavə etmək
+                const cancelButton = document.createElement("button");
+                cancelButton.textContent = "Ləğv et";
+                cancelButton.classList.add("btn", "btn-warning", "mt-2", "ms-2");
+                cancelButton.id = `cancel-${questionIndex}`;
+                cancelButton.onclick = function () {
+                    cancelAnswer(questionIndex);
+                };
+                confirmButton.parentElement.appendChild(cancelButton);
+
                 alert(`Sual ${questionIndex} cavablandırıldı və təsdiq olundu.`);
             } else {
                 alert("Cavabınızı daxil edin.");
             }
         }
 
-        // Səhifəni yenilədikdə təsdiqləmə funksiyası
-        window.addEventListener('beforeunload', function (event) {
-            event.preventDefault();
-            const userConfirmed = confirm("İmtahan səhifəsini yeniləmək istəyirsiniz? Yeniləmə baş verərsə, məlumatlar itəcək.");
-            if (userConfirmed) {
-                // Yeniləmək və index page-ə yönləndirmək
-                window.location.href = 'index.html'
-            } else {
-                // Bunu yerinə yetirməyək, səhifə yenilənməsin
-                event.returnValue = false;
-            }
-        });
+        // Cavabı ləğv etmək funksiyası
+        function cancelAnswer(questionIndex) {
+            const answerBox = document.querySelector(`textarea[name="answer-${questionIndex}"]`);
+            const confirmButton = document.getElementById(`confirm-${questionIndex}`);
+            const cancelButton = document.getElementById(`cancel-${questionIndex}`);
+            const questionBox = document.getElementsByClassName('question-box')[questionIndex - 1];
+
+            // Yenidən redaktə edilə bilər vəziyyətə gətirilir
+            answerBox.removeAttribute("readonly");
+            confirmButton.removeAttribute("disabled");
+            questionBox.classList.remove('completed');
+
+            // "Ləğv et" düyməsi silinir
+            cancelButton.remove();
+            alert(`Sual ${questionIndex} ləğv edildi. Cavabınızı yenidən daxil edə bilərsiniz.`);
+        }
+
+        // Textarea avtomatik genişlənmə funksiyası
+        function autoResizeTextarea(event) {
+            event.target.style.height = "auto"; // Mövcud hündürlüyü sıfırla
+            event.target.style.height = `${event.target.scrollHeight}px`; // Yeni hündürlük təyin et
+        }
+
+        // Səhifə yükləndikdə lazım olan funksiyaları çağırmaq
+        window.onload = function () {
+            createQuestionBoxes();
+            startTimer();
+
+            const textareas = document.querySelectorAll('.answer-box');
+            textareas.forEach(textarea => {
+                textarea.addEventListener('input', autoResizeTextarea);
+            });
+        };
     </script>
 </body>
 </html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İmtahan</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .answer-box {
+            width: 100%;
+            min-height: 40px;
+            max-height: 300px;
+            overflow-y: auto;
+            resize: vertical;
+        }
+
+        .timer {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .question-box {
+            width: 30px;
+            height: 30px;
+            background-color: gray;
+            border-radius: 50%;
+            margin: 5px;
+            display: inline-block;
+            text-align: center;
+            line-height: 30px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .completed {
+            background-color: blue;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="text-center mb-4">İmtahan</h1>
+
+        <!-- Timer -->
+        <div class="text-center mb-4">
+            <p id="timer" class="timer">00:00</p>
+        </div>
+
+        <!-- Sualların sayına uyğun boxlar -->
+        <div class="text-center mb-4" id="question-boxes"></div>
+
+        <form method="POST" action="/exam">
+            <ul class="list-group" id="question-list">
+                {% for question in questions %}
+                    <li class="list-group-item" id="question-{{ loop.index }}">
+                        <label>{{ question }}</label>
+                        <textarea name="answer-{{ loop.index }}" class="form-control answer-box"></textarea>
+                        <button type="button" class="btn btn-success mt-2" id="confirm-{{ loop.index }}" onclick="confirmAnswer('{{ loop.index }}')">Təsdiqlə</button>
+                    </li>
+                {% endfor %}
+            </ul>
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary">Cavabları Göndər</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const examTime = parseInt(urlParams.get('time'));
+        const questions = JSON.parse(decodeURIComponent(urlParams.get('questions')));
+
+        let remainingTime = sessionStorage.getItem('remainingTime') ? parseInt(sessionStorage.getItem('remainingTime')) : examTime * 60;
+        const timerElement = document.getElementById('timer');
+        const questionBoxesContainer = document.getElementById('question-boxes');
+
+        // Sualların sayına uyğun boxları yaratmaq
+        for (let i = 0; i < questions.length; i++) {
+            const box = document.createElement('div');
+            box.classList.add('question-box');
+            box.textContent = i + 1;
+            questionBoxesContainer.appendChild(box);
+        }
+
+        // Timeri başlatmaq
+        function startTimer() {
+            let interval = setInterval(() => {
+                if (remainingTime <= 0) {
+                    clearInterval(interval);
+                    alert("İmtahan müddəti bitdi!");
+                } else {
+                    remainingTime--;
+                    sessionStorage.setItem('remainingTime', remainingTime);  // Timer dəyərini saxlayırıq
+                    let minutes = Math.floor(remainingTime / 60);
+                    let seconds = remainingTime % 60;
+                    timerElement.textContent = `${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+                }
+            }, 1000);
+        }
+
+        // Səhifə yükləndikdə, timeri başlat
+        window.onload = function() {
+            startTimer();
+
+            // Səhifə yeniləndikdə təsdiq mesajı göstərmək
+            window.onbeforeunload = function(event) {
+                const confirmationMessage = "İmtahan səhifəsini yeniləmək istəyirsiniz? Bütün məlumatlar itəcək!";
+                event.returnValue = confirmationMessage;  // Firefox üçün
+                return confirmationMessage;  // Chrome üçün
+            };
+        };
+
+        // Cavabları təsdiqləmək funksiyası
+        function confirmAnswer(questionIndex) {
+            const answerBox = document.querySelector(`textarea[name="answer-${questionIndex}"]`);
+            const confirmButton = document.getElementById(`confirm-${questionIndex}`);
+            const questionBox = document.getElementsByClassName('question-box')[questionIndex - 1];
+
+            if (answerBox.value.trim() !== "") {
+                questionBox.classList.add('completed');
+                confirmButton.setAttribute("disabled", "true");
+                alert(`Sual ${questionIndex} cavablandırıldı və təsdiq olundu.`);
+            } else {
+                alert("Cavabınızı daxil edin.");
+            }
+        }
+
+        // Səhifəni yenilədikdə təsdiqləmə funksiyası
+        window.addEventListener('beforeunload', function (event) {
+            event.preventDefault();
+            const userConfirmed = confirm("İmtahan səhifəsini yeniləmək istəyirsiniz? Yeniləmə baş verərsə, məlumatlar itəcək.");
+            if (userConfirmed) {
+                // Yeniləmək və index page-ə yönləndirmək
+                window.location.href = 'index.html'
+            } else {
+                // Bunu yerinə yetirməyək, səhifə yenilənməsin
+                event.returnValue = false;
+            }
+        });
+    </script>
+</body>
+</html>

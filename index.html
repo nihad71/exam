@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Simulation</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="static/main.css">
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="text-center mb-4">Exam Simulation</h1>
+
+        <div id="upload-section" class="card shadow p-4">
+            <form id="upload-form">
+                <div class="mb-3">
+                    <label for="file" class="form-label">Sual faylı seçin:</label>
+                    <input type="file" id="file" name="file" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label for="num_questions" class="form-label">Sual sayı:</label>
+                    <input type="number" id="num_questions" name="num_questions" class="form-control" min="1" required>
+                </div>
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary w-50">Yüklə</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="questions-section" class="card shadow p-4 mt-5 d-none">
+            <h2 class="text-center mb-4">Bilet№ <span id="ticket-number"></span></h2>
+            <ul id="questions-list" class="list-group"></ul>
+            <div class="text-center mt-4">
+                <button id="start-exam" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#timeModal">
+                    İmtahana Başla
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: İmtahan Müddətini Seçmək -->
+    <div class="modal fade" id="timeModal" tabindex="-1" aria-labelledby="timeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="timeModalLabel">İmtahan Müddətini Daxil Et</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="exam-time">İmtahan Müddəti (dəqiqə):</label>
+                    <input type="number" class="form-control" id="exam-time" min="1" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bağla</button>
+                    <button type="button" class="btn btn-primary" id="start-exam-btn">Başla</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('upload-form');
+            const uploadSection = document.getElementById('upload-section');
+            const questionsSection = document.getElementById('questions-section');
+            const questionsList = document.getElementById('questions-list');
+            const startExamButton = document.getElementById('start-exam');
+            const ticketNumber = document.getElementById('ticket-number');
+            let selectedQuestions = [];
+            let examTime = null;
+
+            // Formun submit olunması
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+
+                const fileInput = document.getElementById('file');
+                const numQuestionsInput = document.getElementById('num_questions');
+                const file = fileInput.files[0];
+                const numQuestions = parseInt(numQuestionsInput.value);
+
+                if (!file) {
+                    alert("Zəhmət olmasa, fayl seçin.");
+                    return;
+                }
+
+                if (isNaN(numQuestions) || numQuestions <= 0) {
+                    alert("Zəhmət olmasa, düzgün sual sayı daxil edin.");
+                    return;
+                }
+
+                // Faylı oxuma və sualları göstərmə
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    const questions = content.split('\n').filter(q => q.trim() !== '');
+                    selectedQuestions = questions.slice(0, numQuestions);
+
+                    questionsList.innerHTML = '';
+                    selectedQuestions.forEach((q) => {
+                        const li = document.createElement('li');
+                        li.textContent = q;
+                        li.classList.add('list-group-item');
+                        questionsList.appendChild(li);
+                    });
+
+                    const randomTicketNumber = Math.floor(Math.random() * 30) + 1;
+                    ticketNumber.textContent = randomTicketNumber;
+
+                    uploadSection.classList.add('d-none');
+                    questionsSection.classList.remove('d-none');
+                };
+
+                reader.readAsText(file);
+            });
+
+            // Modalda Başla düyməsinə basıldıqda
+            document.getElementById('start-exam-btn').addEventListener('click', () => {
+                const examTimeInput = document.getElementById('exam-time');
+                examTime = examTimeInput.value;
+
+                if (examTime <= 0) {
+                    alert("Xahiş edirik müsbət bir müddət daxil edin!");
+                } else {
+                    // URL parametrinə suallar və imtahan vaxtı əlavə edirik
+                    const questionsString = encodeURIComponent(JSON.stringify(selectedQuestions));
+                    const timeString = encodeURIComponent(examTime);
+                    window.location.href = `/exam?questions=${questionsString}&time=${timeString}`;
+                    // Modalı bağlamaq
+                    const modal = new bootstrap.Modal(document.getElementById('timeModal'));
+                    modal.hide();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

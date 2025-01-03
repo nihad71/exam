@@ -1,0 +1,28 @@
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(120deg, #033b72, #b1b1b1);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card {
+    background-color: #ffffff;
+    border: none;
+    border-radius: 10px;
+}
+
+.card .form-control, .btn {
+    border-radius: 5px;
+}
+
+.list-group-item {
+    background-color: #343a40;
+    color: white;
+    border: none;
+}
+
+.list-group-item:not(:last-child) {
+    border-bottom: 1px solid #495057;
+}

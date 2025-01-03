@@ -1,9 +1,13 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for
 import random
 import webbrowser
 from threading import Timer
 
 app = Flask(__name__)
+
+# Masaüstü yolunu təyin edirik
+DESKTOP_PATH = os.path.join(os.path.expanduser("~"), "Desktop")
 
 # Sualları fayldan oxuyan funksiya
 def load_questions(file_content):
@@ -23,17 +27,31 @@ def index():
 def exam():
     if request.method == 'GET':
         questions = request.args.get('questions')
+        exam_time = request.args.get('time', 30)  # Default olaraq 30 dəqiqə
         if not questions:
-            # Parametr yoxdursa, istifadəçini əsas səhifəyə yönləndiririk
-            return redirect(url_for('index'))  
-        questions = eval(questions)  # stringi listə çevirmək
-        return render_template('exam.html', questions=questions)
+            return redirect(url_for('index'))  # Parametr yoxdursa, əsas səhifəyə yönləndiririk
+        questions = eval(questions)  # Stringi listə çevirmək
+        return render_template('exam.html', questions=questions, time=exam_time)
     
     if request.method == 'POST':
-        # Cavabları göndəririk
-        answers = request.form.getlist('answer')
-        # Cavabları işləyirsiniz
-        return render_template('result.html', answers=answers)
+        # Cavablar və sualları oxumaq
+        questions_and_answers = []
+        for key, value in request.form.items():
+            if key.startswith("question-"):
+                index = key.split("-")[1]
+                question = value
+                answer = request.form.get(f"answer-{index}", "Cavab daxil edilməyib")
+                questions_and_answers.append((question, answer))
+        
+        # Masaüstündə fayl yaratmaq
+        file_path = os.path.join(DESKTOP_PATH, 'exam_results.txt')
+        with open(file_path, 'w', encoding='utf-8') as f:
+            for i, (question, answer) in enumerate(questions_and_answers, start=1):
+                f.write(f"Sual {i}: {question}\n")
+                f.write(f"Cavab: {answer}\n\n")
+        
+        return render_template('result.html', questions_and_answers=questions_and_answers, file_path=file_path)
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -41,6 +59,7 @@ def upload_file():
         # Fayl və sual sayı məlumatlarını əldə edirik
         file = request.files['file']
         num_questions = int(request.form['num_questions'])
+        exam_time = int(request.form['time'])
 
         if num_questions <= 0:
             return render_template('index.html', error="Sual sayı sıfırdan böyük olmalıdır.")
@@ -54,7 +73,7 @@ def upload_file():
         selected_questions = get_random_questions(questions, num_questions)
 
         # Seçilən sualları yeni səhifəyə göndəririk
-        return render_template('questions.html', questions=selected_questions)
+        return redirect(url_for('exam', questions=selected_questions, time=exam_time))
 
     except ValueError:
         return render_template('index.html', error="Sual sayını düzgün daxil edin.")
@@ -66,6 +85,5 @@ def open_browser():
     webbrowser.open_new('http://127.0.0.1:5000/')
 
 if __name__ == '__main__':
-    # Brauzeri avtomatik açmaq üçün bir gecikmə təyin edirik
     Timer(1, open_browser).start()
     app.run(debug=True)
